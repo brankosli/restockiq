@@ -1,0 +1,63 @@
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: restockiq_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: restockiq
+      POSTGRES_PASSWORD: restockiq_secret
+      POSTGRES_DB: restockiq_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U restockiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis - queue + cache
+  redis:
+    image: redis:7-alpine
+    container_name: restockiq_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Mailpit - local email catcher (no real emails sent)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: restockiq_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI - open http://localhost:8025
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # Redis Commander - Redis GUI (optional but useful)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: restockiq_redis_ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
