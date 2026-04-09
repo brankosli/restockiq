@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { stores } from "@/db/schema";
+import { syncStoreInventory } from "@/lib/sync";
+import { registerInventoryWebhook } from "@/lib/webhooks";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -36,6 +38,12 @@ export async function GET(req: NextRequest) {
       target: stores.shopDomain,
       set: { accessToken: access_token },
     });
+
+  // Registruj webhook i pokreni inicijalni sync u pozadini (ne blokiramo redirect)
+  Promise.all([
+    registerInventoryWebhook(shop, access_token),
+    syncStoreInventory(shop),
+  ]).catch((err) => console.error(`[setup] Post-install setup failed for ${shop}:`, err));
 
   // Redirect na dashboard
   return NextResponse.redirect(new URL("/dashboard", req.url));
