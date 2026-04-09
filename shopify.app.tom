@@ -1,0 +1,18 @@
+name = "RestockIQ"
+client_id = "c5dedd24ab165a6613f4679a2a696339"
+application_url = "https://nonsympathizing-phototropically-gregoria.ngrok-free.dev"
+embedded = false
+
+[access_scopes]
+scopes = "read_products,write_products,read_inventory"
+
+[auth]
+redirect_urls = [
+  "https://nonsympathizing-phototropically-gregoria.ngrok-free.dev/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-04"
+
+[pos]
+embedded = false
