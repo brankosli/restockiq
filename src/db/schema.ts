@@ -38,6 +38,35 @@ export const productVariants = pgTable("product_variants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const pendingAlerts = pgTable("pending_alerts", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id),
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  // JSON array: [{variantId, productTitle, variantTitle, sku, imageUrl, currentStock, minimumStock, suggestedQty}]
+  items: text("items").notNull().default("[]"),
+  notes: text("notes"),
+  status: text("status").notNull().default("pending"), // pending | sent | dismissed
+  createdAt: timestamp("created_at").defaultNow(),
+  sentAt: timestamp("sent_at"),
+});
+
+export const storeSettings = pgTable("store_settings", {
+  id: serial("id").primaryKey(),
+  storeId: integer("store_id").references(() => stores.id).unique(),
+  companyName: text("company_name"),
+  address: text("address"),
+  city: text("city"),
+  country: text("country"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  taxId: text("tax_id"),
+  logoUrl: text("logo_url"),
+  currency: text("currency").default("EUR"),
+  orderNotes: text("order_notes"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const alertLogs = pgTable("alert_logs", {
   id: serial("id").primaryKey(),
   storeId: integer("store_id").references(() => stores.id),

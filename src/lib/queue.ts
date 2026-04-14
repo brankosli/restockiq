@@ -48,4 +48,16 @@ export interface NotifyJobData {
   channel: string;
   format: string;
   imageUrl: string | null;
+  // Multi-product (pending alert flow)
+  allItems?: Array<{
+    variantId: number;
+    productTitle: string;
+    variantTitle: string | null;
+    sku: string | null;
+    imageUrl: string | null;
+    currentStock: number;
+    minimumStock: number;
+    suggestedQty: number;
+  }>;
+  notes?: string | null;
 }

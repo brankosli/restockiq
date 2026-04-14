@@ -8,21 +8,6 @@ function getClient() {
   return twilio(sid, token);
 }
 
-function buildMessage(data: NotifyJobData): string {
-  const variantPart = data.variantTitle ? ` - ${data.variantTitle}` : "";
-  const skuPart = data.sku ? `\nSKU: ${data.sku}` : "";
-  return [
-    `⚠️ *Low Stock Alert* — RestockIQ`,
-    ``,
-    `Hi ${data.vendorName},`,
-    ``,
-    `*${data.productTitle}${variantPart}*${skuPart}`,
-    `Current stock: *${data.currentStock}*`,
-    `Minimum stock: ${data.minimumStock}`,
-    ``,
-    `Please restock as soon as possible.`,
-  ].join("\n");
-}
 
 export async function sendWhatsAppNotification(data: NotifyJobData): Promise<string> {
   if (!data.vendorPhone) {
@@ -32,22 +17,45 @@ export async function sendWhatsAppNotification(data: NotifyJobData): Promise<str
   const from = process.env.TWILIO_WHATSAPP_FROM;
   if (!from) throw new Error("Missing TWILIO_WHATSAPP_FROM");
 
-  const body = buildMessage(data);
-
-  // Twilio WhatsApp format: "whatsapp:+387xxxxxxxx"
   const to = data.vendorPhone.startsWith("whatsapp:")
     ? data.vendorPhone
     : `whatsapp:${data.vendorPhone}`;
 
-  const params: Parameters<ReturnType<typeof getClient>["messages"]["create"]>[0] = {
-    from,
-    to,
-    body,
-  };
-  if (data.imageUrl) params.mediaUrl = [data.imageUrl];
+  const client = getClient();
 
-  await getClient().messages.create(params);
-  return body;
+  const items = data.allItems && data.allItems.length > 0
+    ? data.allItems
+    : [{
+        variantId: data.variantId,
+        productTitle: data.productTitle,
+        variantTitle: data.variantTitle,
+        sku: data.sku,
+        imageUrl: data.imageUrl,
+        currentStock: data.currentStock,
+        minimumStock: data.minimumStock,
+        suggestedQty: Math.max(data.minimumStock * 2 - data.currentStock, 1),
+      }];
+
+  // Jedna poruka po proizvodu: slika + caption
+  for (const item of items) {
+    const variant = item.variantTitle ? ` (${item.variantTitle})` : "";
+    const sku = item.sku ? `\nSKU: ${item.sku}` : "";
+    const caption = `${item.productTitle}${variant}${sku}\nQty: ${item.suggestedQty}`;
+
+    await client.messages.create({
+      from,
+      to,
+      body: caption,
+      ...(item.imageUrl ? { mediaUrl: [item.imageUrl] } : {}),
+    });
+  }
+
+  // Ako postoji napomena, šaljemo je kao zasebnu poruku
+  if (data.notes?.trim()) {
+    await client.messages.create({ from, to, body: `📝 ${data.notes.trim()}` });
+  }
+
+  return items.map((i) => i.productTitle).join(", ");
 }
 
 export async function sendSmsNotification(data: NotifyJobData): Promise<string> {
