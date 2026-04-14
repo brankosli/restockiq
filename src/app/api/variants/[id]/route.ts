@@ -18,29 +18,68 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateData: any = {
-    ...(vendorId !== undefined && { vendorId: vendorId === null ? null : Number(vendorId) }),
-    ...(minimumStock !== undefined && { minimumStock: Number(minimumStock) }),
-    updatedAt: new Date(),
-  };
+  // Dohvati trenutno stanje varijante (trebamo stari vendorId)
+  const [current] = await db
+    .select()
+    .from(productVariants)
+    .where(eq(productVariants.id, variantId))
+    .limit(1);
 
+  if (!current) return NextResponse.json({ error: "Variant not found" }, { status: 404 });
+
+  const oldVendorId = current.vendorId;
+  const newVendorId = vendorId !== undefined
+    ? (vendorId === null ? null : Number(vendorId))
+    : oldVendorId;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [updated] = await db
     .update(productVariants)
-    .set(updateData)
+    .set({
+      ...(vendorId !== undefined && { vendorId: newVendorId }),
+      ...(minimumStock !== undefined && { minimumStock: Number(minimumStock) }),
+      updatedAt: new Date(),
+    } as any)
     .where(eq(productVariants.id, variantId))
     .returning();
 
-  if (!updated) return NextResponse.json({ error: "Variant not found" }, { status: 404 });
+  // Ako se vendor promijenio, ukloni proizvod iz starog vendorovog pending ordera
+  const vendorChanged = vendorId !== undefined && oldVendorId !== newVendorId;
 
-  // Ako je vendor assignovan, provjeri da li je stock ispod minimuma
-  // i dodaj u restock orders ako treba
-  const newVendorId = updated.vendorId;
+  if (vendorChanged && oldVendorId) {
+    const [oldPending] = await db
+      .select()
+      .from(pendingAlerts)
+      .where(
+        and(
+          eq(pendingAlerts.storeId, current.storeId!),
+          eq(pendingAlerts.vendorId, oldVendorId),
+          eq(pendingAlerts.status, "pending")
+        )
+      )
+      .limit(1);
+
+    if (oldPending) {
+      const items: PendingItem[] = JSON.parse(oldPending.items).filter(
+        (i: PendingItem) => i.variantId !== variantId
+      );
+
+      if (items.length === 0) {
+        // Order je prazan — obriši ga
+        await db.delete(pendingAlerts).where(eq(pendingAlerts.id, oldPending.id));
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.update(pendingAlerts).set({ items: JSON.stringify(items) } as any)
+          .where(eq(pendingAlerts.id, oldPending.id));
+      }
+    }
+  }
+
+  // Ako je novi vendor assignovan i stock je ispod minimuma → dodaj u pending
   const currentStock = updated.currentStock ?? 0;
   const minStock = updated.minimumStock ?? 10;
 
-  if (newVendorId && currentStock <= minStock) {
-    // Provjeri da li je vendor aktivan
+  if (vendorChanged && newVendorId && currentStock <= minStock) {
     const [vendor] = await db
       .select({ active: vendors.active })
       .from(vendors)
@@ -59,7 +98,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         suggestedQty: Math.max(minStock * 2 - currentStock, 1),
       };
 
-      // Provjeri postoji li već pending order za ovog vendora
       const [existing] = await db
         .select()
         .from(pendingAlerts)
@@ -74,8 +112,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
       if (existing) {
         const items: PendingItem[] = JSON.parse(existing.items);
-        const alreadyExists = items.some((i) => i.variantId === updated.id);
-        if (!alreadyExists) {
+        if (!items.some((i) => i.variantId === updated.id)) {
           items.push(newItem);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           await db.update(pendingAlerts).set({ items: JSON.stringify(items) } as any)

@@ -120,25 +120,12 @@ export default function PendingPage() {
   const [sending, setSending] = useState<number | null>(null);
   const [dismissing, setDismissing] = useState<number | null>(null);
 
-  const [syncing, setSyncing] = useState(false);
-
   const load = useCallback(async () => {
     const res = await fetch("/api/pending");
     const data = await res.json();
     setAlerts(Array.isArray(data) ? data : []);
     setLoading(false);
   }, []);
-
-  async function manualSync() {
-    setSyncing(true);
-    await fetch("/api/pending/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-    await load();
-    setSyncing(false);
-  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -183,19 +170,8 @@ export default function PendingPage() {
   if (alerts.length === 0) {
     return (
       <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800 mb-1">Restock Orders</h1>
-            <p className="text-sm text-slate-500">Review and send low stock notifications to vendors.</p>
-          </div>
-          <button
-            onClick={manualSync}
-            disabled={syncing}
-            className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-          >
-            {syncing ? "Scanning..." : "Scan inventory"}
-          </button>
-        </div>
+        <h1 className="text-xl font-semibold text-slate-800 mb-1">Restock Orders</h1>
+        <p className="text-sm text-slate-500 mb-8">Review and send low stock notifications to vendors.</p>
         <div className="text-center py-16 text-slate-400">
           <div className="text-4xl mb-3">✓</div>
           <p className="text-sm">No pending orders. All vendors are up to date.</p>
@@ -210,21 +186,10 @@ export default function PendingPage() {
 
   return (
     <div className="p-8 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800 mb-1">Restock Orders</h1>
-          <p className="text-sm text-slate-500">
-            Review before sending to vendors. Adjust quantities, remove products, or add notes.
-          </p>
-        </div>
-        <button
-          onClick={manualSync}
-          disabled={syncing}
-          className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-        >
-          {syncing ? "Scanning..." : "Scan inventory"}
-        </button>
-      </div>
+      <h1 className="text-xl font-semibold text-slate-800 mb-1">Restock Orders</h1>
+      <p className="text-sm text-slate-500 mb-6">
+        Review before sending to vendors. Adjust quantities, remove products, or add notes.
+      </p>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 mb-6">
