@@ -11,6 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 px-3 py-4 space-y-1">
           <NavLink href="/dashboard">Inventory</NavLink>
           <NavLink href="/dashboard/vendors">Vendors</NavLink>
+          <NavLink href="/dashboard/alerts">Alert Log</NavLink>
         </nav>
       </aside>
 
