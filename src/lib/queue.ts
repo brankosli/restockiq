@@ -45,4 +45,5 @@ export interface NotifyJobData {
   vendorName: string;
   channel: string;
   format: string;
+  imageUrl: string | null;
 }

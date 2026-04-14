@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { Worker } from "bullmq";
 import { getRedisConnection } from "@/lib/queue";
 import { processNotification } from "./processors/notify";

@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       sku: productVariants.sku,
       currentStock: productVariants.currentStock,
       minimumStock: productVariants.minimumStock,
+      imageUrl: productVariants.imageUrl,
       vendorId: productVariants.vendorId,
       vendorName: vendors.name,
       vendorEmail: vendors.email,
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
     vendorName: variant.vendorName,
     channel: variant.vendorChannel ?? "email",
     format: variant.vendorFormat ?? "plain_text",
+    imageUrl: variant.imageUrl ?? null,
   };
 
   const job = await getNotificationQueue().add("notify-test", jobData);

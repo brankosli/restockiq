@@ -39,7 +39,14 @@ export async function sendWhatsAppNotification(data: NotifyJobData): Promise<str
     ? data.vendorPhone
     : `whatsapp:${data.vendorPhone}`;
 
-  await getClient().messages.create({ from, to, body });
+  const params: Parameters<ReturnType<typeof getClient>["messages"]["create"]>[0] = {
+    from,
+    to,
+    body,
+  };
+  if (data.imageUrl) params.mediaUrl = [data.imageUrl];
+
+  await getClient().messages.create(params);
   return body;
 }
 

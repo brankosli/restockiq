@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx watch src/worker/index.ts",
+    "worker": "tsx --env-file=.env.local --tsconfig tsconfig.worker.json src/worker/index.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

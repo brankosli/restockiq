@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       vendorChannel: vendors.channel,
       vendorFormat: vendors.format,
       vendorActive: vendors.active,
+      imageUrl: productVariants.imageUrl,
     })
     .from(productVariants)
     .leftJoin(vendors, eq(productVariants.vendorId, vendors.id))
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
     vendorName: variant.vendorName!,
     channel: variant.vendorChannel ?? "email",
     format: variant.vendorFormat ?? "plain_text",
+    imageUrl: variant.imageUrl ?? null,
   };
 
   await getNotificationQueue().add("notify", jobData);
