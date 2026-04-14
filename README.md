@@ -1,317 +1,266 @@
 # RestockIQ
 
-Automatski sistem za restock alertove baziran na Shopify inventory podacima. Super-admin platforma koja omogućava slanje prilagođenih notifikacija vendorima putem Email, WhatsApp, Viber, SMS i Slack kanala.
+Shopify inventory monitoring system that automatically sends low-stock alerts to vendors via WhatsApp. When a product falls below the configured minimum stock level, vendors receive an instant WhatsApp message with the product name, image, and current stock count.
+
+---
+
+## How it works
+
+```
+Shopify (stock changes)
+  → webhook → RestockIQ API
+  → check: is stock ≤ minimum?
+  → check: has 24h passed since last alert?
+  → YES → queue job (Redis) → Worker → WhatsApp message to vendor
+```
 
 ---
 
 ## Tech stack
 
-| Sloj | Tehnologija |
+| Layer | Technology |
 |---|---|
 | Framework | Next.js 15 (App Router) |
-| API | tRPC + Zod |
-| Auth | Clerk (Organizations za multi-tenancy) |
-| Baza | PostgreSQL + Drizzle ORM |
-| Queue | BullMQ + Redis |
-| Billing | Stripe |
+| Database | PostgreSQL + Drizzle ORM |
+| Queue | BullMQ + Redis (Upstash) |
+| Notifications | Twilio (WhatsApp, SMS) |
 | Shopify | @shopify/shopify-api |
-| Lokalni email | Mailpit |
 
 ---
 
-## Preduslovi
+## Services required
 
-Provjeri da li imaš instalirano:
+You need accounts on the following services before deploying:
 
-```bash
-node --version    # v20+ obavezno
-npm --version     # v10+
-docker --version  # Docker Desktop ili Docker Engine
-git --version
-```
+### 1. Neon — PostgreSQL database
+- Sign up at https://neon.tech (free tier available)
+- Create a new project
+- Copy the `DATABASE_URL` connection string
 
-Ako nemaš Node.js: https://nodejs.org (preporučujem instalaciju putem `nvm`)
+### 2. Upstash — Redis queue
+- Sign up at https://upstash.com (free tier available)
+- Create a new Redis database
+- Select **TLS** enabled
+- Copy the connection string — must start with `rediss://` (with double `s`)
+
+### 3. Twilio — WhatsApp notifications
+- Sign up at https://twilio.com
+- For **WhatsApp Sandbox** (free testing):
+  - Go to **Messaging → Try it out → Send a WhatsApp message**
+  - Note the sandbox number: `+14155238886`
+  - Each recipient must join the sandbox by sending `join <keyword>` to that number on WhatsApp
+  - Copy `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` from the console
+- For **production WhatsApp**:
+  - Apply for a WhatsApp Business number through Twilio
+  - This requires Meta Business verification (takes a few days)
+
+### 4. Shopify Partners — app registration
+- Sign up at https://partners.shopify.com
+- Go to **Apps → Create app → Custom app**
+- Set **App URL** to your deployment URL (e.g. `https://your-app.vercel.app`)
+- Set **Allowed redirection URLs** to `https://your-app.vercel.app/api/auth/callback`
+- Copy `API key` → `SHOPIFY_API_KEY`
+- Copy `API secret key` → `SHOPIFY_API_SECRET`
+- Create a **Development store** for testing (with test data)
+
+### 5. Vercel — Next.js hosting
+- Sign up at https://vercel.com
+- Import your GitHub repository
+- Add all environment variables (see section below)
+- Deploy
+
+### 6. Railway — Worker process
+- Sign up at https://railway.app
+- Create a new project → **Deploy from GitHub repo**
+- Set the **Start command** to: `npm run worker`
+- Add all environment variables (same as Vercel)
+- The worker runs as a separate background process alongside the Vercel deployment
 
 ---
 
-## Instalacija
+## Environment variables
 
-### 1. Kloniraj repozitorij
-
-```bash
-git clone https://github.com/tvoj-username/restockiq.git
-cd restockiq
-```
-
-### 2. Instaliraj dependencies
-
-```bash
-npm install
-```
-
-### 3. Postavi environment varijable
-
-```bash
-cp .env.example .env.local
-```
-
-Otvori `.env.local` i popuni minimalne vrijednosti za lokalni razvoj:
+Create a `.env.local` file in the project root (never commit this file):
 
 ```env
-DATABASE_URL=postgresql://restockiq:restockiq_secret@localhost:5432/restockiq_dev
-REDIS_URL=redis://localhost:6379
+# App
+NODE_ENV=development
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Database (Neon)
+DATABASE_URL=postgresql://...@....neon.tech/restockiq
+
+# Redis (Upstash) — must use rediss:// (with TLS)
+REDIS_URL=rediss://default:...@....upstash.io:6379
+
+# Shopify
+SHOPIFY_API_KEY=your_api_key
+SHOPIFY_API_SECRET=your_api_secret
+SHOPIFY_SCOPES=read_products,write_products,read_inventory
+# Without https:// — use ngrok URL for local dev, Vercel URL for production
+SHOPIFY_APP_HOST=your-app.vercel.app
+
+# Twilio
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+TWILIO_SMS_FROM=+1xxxxxxxxxx
 ```
 
-Ostale varijable (Shopify, Clerk, Stripe) popunjavaš kako budeš postavljao svaki servis — pogledaj sekciju [Postavljanje servisa](#postavljanje-servisa) ispod.
+---
 
-### 4. Pokreni Docker servise
+## Local development
+
+### Prerequisites
 
 ```bash
-docker compose up -d
+node --version   # v20+ required
+npm --version    # v10+
 ```
 
-Ovo pokreće PostgreSQL, Redis, Mailpit (email) i Redis Commander (UI).
-
-Provjeri da li sve radi:
+### Setup
 
 ```bash
-docker compose ps
-```
+# Clone the repo
+git clone https://github.com/brankosli/restockiq.git
+cd restockiq
 
-Svi servisi trebaju biti u statusu `running`.
+# Install dependencies
+npm install
 
-### 5. Pokreni database migracije
+# Create and fill environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your values
 
-```bash
+# Run database migrations
 npm run db:migrate
-```
 
-Opciono — popuni bazu test podacima:
-
-```bash
-npm run db:seed
-```
-
-### 6. Pokreni aplikaciju
-
-```bash
-# Pokreće Next.js i BullMQ worker istovremeno
+# Start the app and worker
 npm run dev:all
 ```
 
-Ili odvojeno u dva terminala:
+App runs at: **http://localhost:3000**
 
-```bash
-# Terminal 1 — Next.js
-npm run dev
+### Shopify webhooks in local development
 
-# Terminal 2 — BullMQ worker
-npm run worker
-```
+Shopify needs a public URL to send webhooks. Use ngrok:
 
-Aplikacija je dostupna na: **http://localhost:3000**
+1. Sign up at https://ngrok.com (free static subdomain)
+2. Install: https://ngrok.com/download
+3. Run:
+   ```bash
+   ngrok http 3000
+   ```
+4. Copy the HTTPS URL (e.g. `abc123.ngrok-free.app`)
+5. Set in `.env.local`:
+   ```
+   SHOPIFY_APP_HOST=abc123.ngrok-free.app
+   ```
+6. Restart the app
 
 ---
 
-## Lokalni servisi
-
-| Servis | URL | Opis |
-|---|---|---|
-| Aplikacija | http://localhost:3000 | RestockIQ dashboard |
-| Mailpit UI | http://localhost:8025 | Preview svih poslatih emailova |
-| Redis Commander | http://localhost:8081 | Pregled Redis queue-ova |
-| Drizzle Studio | http://localhost:4983 | GUI za bazu (pokrenuti posebno) |
-
-### Drizzle Studio (DB GUI)
+## Database
 
 ```bash
+# Apply migrations
+npm run db:migrate
+
+# Generate migrations after schema changes
+npm run db:generate
+
+# Open Drizzle Studio (DB GUI)
 npm run db:studio
 ```
 
 ---
 
-## Shopify lokalni razvoj
-
-Za Shopify webhooks potreban ti je javni URL. Koristimo ngrok:
-
-### Instalacija ngrok
+## Available scripts
 
 ```bash
-npm install -g ngrok
-# ili
-brew install ngrok  # macOS
-```
-
-Registracija je besplatna na https://ngrok.com — dobijаš fiksni subdomain.
-
-### Pokretanje ngrok tunela
-
-```bash
-ngrok http 3000
-```
-
-Dobit ćeš URL oblika `https://abc123.ngrok-free.app`. Taj URL ide u:
-1. `.env.local` → `SHOPIFY_APP_HOST=abc123.ngrok-free.app` (bez https://)
-2. Shopify Partners Dashboard → App setup → App URL
-
-### Shopify Partners setup
-
-1. Napravi account na https://partners.shopify.com
-2. **Apps** → **Create app** → **Custom app**
-3. Kopiraj `API key` i `API secret` u `.env.local`
-4. **Stores** → **Add store** → **Development store** → izaberi "Populated with test data"
-5. Instaliraj app na development store
-
----
-
-## Git workflow
-
-### Inicijalni setup (ako praviš novi repo)
-
-```bash
-cd restockiq
-git init
-git add .
-git commit -m "feat: initial project setup"
-```
-
-Napravi repo na GitHub (https://github.com/new) pa povezi:
-
-```bash
-git remote add origin https://github.com/tvoj-username/restockiq.git
-git branch -M main
-git push -u origin main
-```
-
-### Preporučeni branch model
-
-```
-main          → stabilna verzija, uvijek deployable
-dev           → aktivni razvoj, merge ovde
-feature/xyz   → nova funkcionalnost
-fix/xyz       → bugfix
-```
-
-```bash
-# Novi feature
-git checkout -b feature/shopify-webhook-handler
-# ... razvoj ...
-git add .
-git commit -m "feat: add inventory webhook handler with dedup"
-git push origin feature/shopify-webhook-handler
-# → otvori Pull Request prema dev branchu
-```
-
-### Commit konvencija
-
-```
-feat:     nova funkcionalnost
-fix:      bugfix
-chore:    tooling, dependencies
-docs:     dokumentacija
-refactor: refaktor bez promjene funkcionalnosti
+npm run dev        # Next.js dev server
+npm run worker     # BullMQ notification worker
+npm run dev:all    # Both simultaneously
+npm run build      # Production build
+npm run start      # Production server
+npm run db:migrate # Apply DB migrations
+npm run db:generate # Generate new migrations
+npm run db:studio  # Open DB GUI
+npm run type-check # TypeScript check
+npm run lint       # ESLint
 ```
 
 ---
 
-## Postavljanje servisa
+## Testing notifications
 
-### Clerk (Auth)
-
-1. https://dashboard.clerk.com → **Create application**
-2. Uključi **Organizations** u settings (potrebno za Agency tier)
-3. Kopiraj `Publishable key` i `Secret key` u `.env.local`
-
-### Stripe (Billing)
-
-1. https://dashboard.stripe.com
-2. **Products** → napravi 3 proizvoda: Starter (€29), Growth (€79), Agency (€199)
-3. Kopiraj Price ID-ove u `.env.local`
-4. Za webhooks lokalno: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
-   (potreban [Stripe CLI](https://stripe.com/docs/stripe-cli))
-
-### WhatsApp (Test)
-
-1. https://developers.facebook.com → Create app → Business
-2. Dodaj WhatsApp product
-3. Kopiraj `Phone Number ID` i temporary access token u `.env.local`
-4. Dodaj do 5 test brojeva u Meta konzoli
-
----
-
-## Korisne komande
+### Test WhatsApp directly (no queue needed)
 
 ```bash
-# Docker
-docker compose up -d          # Pokreni sve servise
-docker compose down           # Zaustavi sve
-docker compose logs -f        # Pratiti logove
-
-# Database
-npm run db:generate           # Generiši migracije nakon izmjena sheme
-npm run db:migrate            # Primijeni migracije
-npm run db:studio             # Otvori Drizzle Studio GUI
-
-# Development
-npm run dev:all               # Next.js + Worker istovremeno
-npm run type-check            # TypeScript provjera bez builda
-npm run lint                  # ESLint provjera
+curl -X POST http://localhost:3000/api/test/twilio \
+  -H "Content-Type: application/json" \
+  -d '{"to": "+38161xxxxxxx", "channel": "whatsapp"}'
 ```
+
+### Test full queue flow
+
+Requires: vendor with WhatsApp channel assigned to a product in the dashboard.
+
+```bash
+curl -X POST http://localhost:3000/api/test/notify \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+> These endpoints are disabled in production (`NODE_ENV=production`).
 
 ---
 
-## Struktura projekta
+## Project structure
 
 ```
 restockiq/
 ├── src/
-│   ├── app/                  # Next.js App Router
-│   │   ├── (dashboard)/      # Zaštićene rute
-│   │   ├── api/              # API routes
-│   │   │   ├── trpc/         # tRPC handler
-│   │   │   └── webhooks/     # Shopify + Stripe webhooks
-│   │   └── layout.tsx
-│   ├── server/
-│   │   ├── db/               # Drizzle schema + queries
-│   │   ├── trpc/             # tRPC routers
-│   │   └── queue/            # BullMQ job definitions
-│   ├── worker/
-│   │   └── index.ts          # BullMQ worker process
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── auth/              # Shopify OAuth flow
+│   │   │   ├── sync/              # Manual inventory sync
+│   │   │   ├── variants/          # Variant CRUD
+│   │   │   ├── vendors/           # Vendor CRUD
+│   │   │   ├── webhooks/
+│   │   │   │   └── inventory/     # Shopify stock update webhook
+│   │   │   └── test/              # Dev-only test endpoints
+│   │   └── dashboard/
+│   │       ├── page.tsx           # Inventory view
+│   │       ├── vendors/           # Vendor management
+│   │       └── alerts/            # Alert log
+│   ├── db/
+│   │   ├── index.ts               # DB connection
+│   │   └── schema.ts              # Table definitions
 │   ├── lib/
-│   │   ├── shopify/          # Shopify API klijent
-│   │   └── notifications/    # Sending adapteri (email, WhatsApp...)
-│   └── components/           # React komponente
-├── docker-compose.yml
-├── .env.example
-├── .env.local                # Tvoje varijable (nije u gitu!)
-├── package.json
+│   │   ├── queue.ts               # BullMQ + Redis setup
+│   │   ├── sync.ts                # Shopify product sync
+│   │   ├── shopify.ts             # Shopify API client
+│   │   └── notifications/
+│   │       ├── index.ts           # Channel router
+│   │       ├── email.ts           # Email via Nodemailer
+│   │       └── twilio.ts          # WhatsApp + SMS via Twilio
+│   └── worker/
+│       ├── index.ts               # Worker entry point
+│       └── processors/
+│           └── notify.ts          # Job processor
+├── tsconfig.worker.json           # Worker-specific TS config
+├── .env.local                     # Local env vars (not in git)
 └── README.md
 ```
 
 ---
 
-## Problemi i rješenja
+## Database schema
 
-**Docker ne može pokrenuti postgres:**
-```bash
-docker compose down -v   # Briše volume-e
-docker compose up -d
-```
-
-**ngrok URL se mijenja pri svakom pokretanju:**
-Napravi besplatan ngrok account i koristiti statični subdomain:
-```bash
-ngrok config add-authtoken tvoj_token
-ngrok http --domain=restockiq.ngrok-free.app 3000
-```
-
-**TypeScript greške nakon `npm install`:**
-```bash
-npm run type-check   # Vidi sve greške odjednom
-```
-
----
-
-## Licence
-
-MIT — slobodno koristi za lični i komercijalni projekat.
+| Table | Description |
+|---|---|
+| `stores` | Connected Shopify stores with OAuth tokens |
+| `product_variants` | Inventory items synced from Shopify |
+| `vendors` | Suppliers with contact info and notification preferences |
+| `alert_logs` | History of all sent/failed notifications |
