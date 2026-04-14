@@ -9,8 +9,10 @@ const g = global as typeof global & {
 
 export function getRedisConnection(): IORedis {
   if (!g._redisConn) {
-    g._redisConn = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+    const url = process.env.REDIS_URL ?? "redis://localhost:6379";
+    g._redisConn = new IORedis(url, {
       maxRetriesPerRequest: null,
+      tls: url.startsWith("rediss://") ? {} : undefined,
     });
   }
   return g._redisConn;
