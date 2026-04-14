@@ -7,11 +7,12 @@
 
 ## What is RestockIQ?
 
-RestockIQ is an automated inventory monitoring system connected to your Shopify store. When a product's stock falls below your configured minimum, the system automatically sends a WhatsApp message to your supplier (vendor) with the product photo and current stock level — no manual work required on your end.
+RestockIQ is an automated inventory monitoring system connected to your Shopify store. When a product's stock falls below your configured minimum, the system automatically notifies your supplier — via a WhatsApp message with product photos, or a formatted email with all items — without any manual work on your end.
 
 **Key benefits:**
 - Never miss a restock order again
-- Suppliers instantly see which product needs replenishment, even without language knowledge
+- Suppliers instantly see which products need replenishment, even without language knowledge
+- You review and approve every request before it's sent
 - Everything runs automatically, 24/7
 
 ---
@@ -20,7 +21,7 @@ RestockIQ is an automated inventory monitoring system connected to your Shopify 
 
 Before you begin, enter your company information. This data will be used on purchase orders and documents.
 
-**[SCREENSHOT: Settings]**
+**[SCREENSHOT: Settings-data.png]**
 
 Go to **Settings** in the left menu and fill in:
 
@@ -35,32 +36,32 @@ Go to **Settings** in the left menu and fill in:
 | Website | Your website (optional) |
 | Logo URL | Direct link to your logo image |
 | Currency | Currency you use for orders |
-| Default Notes | Note displayed at the bottom of every purchase order |
+| Default Notes | Note displayed on every purchase order |
 
 Click **Save Settings** when done.
 
-> **Logo tip:** Use a direct image link ending in `.png`, `.jpg`, or `.svg`. If you're not sure how to get a direct link, contact us and we'll help.
+> **Logo tip:** Use a direct image link ending in `.png`, `.jpg`, or `.svg`. If you're not sure how to get a direct link, contact us.
 
 ---
 
 ## 2. Managing Suppliers (Vendors)
 
-A vendor is a company or person you order goods from. Each vendor receives WhatsApp notifications when their assigned products reach minimum stock levels.
+A vendor is a company or person you order goods from. Each vendor receives notifications when their assigned products reach minimum stock levels.
 
 ### Vendor List
 
-**[SCREENSHOT: Vendors-main]**
+**[SCREENSHOT: Vendors-main.png]**
 
 The **Vendors** page shows all your suppliers with:
 - **Name** — supplier name
 - **Email** — email address
-- **Channel** — notification channel (WhatsApp)
+- **Channel** — notification channel (WhatsApp or Email)
 - **Products** — number of products assigned to this vendor
 - **Status** — Active / Inactive
 
 ### Adding a New Vendor
 
-**[SCREENSHOT: Vendors-add]**
+**[SCREENSHOT: Vendors-add.png]**
 
 Click **+ Add vendor** and fill in the form:
 
@@ -68,33 +69,29 @@ Click **+ Add vendor** and fill in the form:
 |---|---|
 | Name * | Vendor name (required) |
 | Email | Vendor's email address |
-| Phone | WhatsApp number in international format (e.g. `+8613812345678` for China) |
-| Notification channel | Select **WhatsApp** |
+| Phone | WhatsApp number in international format |
+| Notification channel | WhatsApp or Email |
 
 Click **Create** to save the vendor.
 
-> **Important for WhatsApp:** The phone number must be in international format with the country code. Examples:
+> **Important for WhatsApp:** The phone number must be in international format with the country code:
 > - China: `+86 138 1234 5678`
 > - USA: `+1 212 123 4567`
 > - UK: `+44 7911 123456`
->
-> The vendor must have WhatsApp installed on that number to receive messages.
 
 ### Editing and Deleting
 
-Use **Edit** to update vendor details or **Delete** to remove a vendor. Vendors assigned to products cannot be deleted until those assignments are removed.
+Use **Edit** to update vendor details or **Delete** to remove a vendor.
 
 ---
 
 ## 3. Inventory Management
 
-**[SCREENSHOT: Inventory]**
+**[SCREENSHOT: Inventory.png]**
 
 The **Inventory** page displays all your Shopify products and their current stock levels.
 
 ### Status Overview
-
-At the top of the page you'll see a summary:
 
 | Card | Description |
 |---|---|
@@ -103,103 +100,115 @@ At the top of the page you'll see a summary:
 | **Warning** (orange) | Stock is below twice the minimum |
 | **OK** (green) | Stock level is healthy |
 
-### Product Table
-
-Each row shows:
-- **Product** — product name and variant (color, size, etc.) with image
-- **SKU** — stock keeping unit number
-- **Stock** — current inventory (red = critical, orange = warning, green = OK)
-- **Min** — minimum stock threshold, editable directly in the table
-- **Vendor** — assigned supplier
-
 ### Setting Minimum Stock Levels
 
 Click the number in the **Min** column next to any product and type a new value. Changes are saved automatically.
 
-> **Example:** If you sell an average of 5 units per week and your supplier takes 2-3 weeks to deliver, set Min to 10-15 to ensure you never run out.
+> **Example:** If you sell an average of 5 units per week and your supplier takes 2-3 weeks to deliver, set Min to 15-20.
 
 ### Assigning a Vendor to a Product
 
-In the **Vendor** column, click the dropdown and select a supplier for that product. From that point on, the vendor will receive WhatsApp alerts whenever stock drops below the minimum.
+In the **Vendor** column, click the dropdown and select a supplier for that product.
+
+**Important:** At the moment of assignment, the system automatically checks if stock is below minimum. If it is, the product immediately appears in **Restock Orders**.
+
+If you change the vendor for a product, the system automatically:
+- Removes the product from the old vendor's restock order
+- Adds it to the new vendor's order (if stock is below minimum)
 
 ### Syncing with Shopify
 
-Click **Sync now** (top right corner) to pull the latest stock data from your Shopify store. This is useful if you've manually adjusted inventory in Shopify.
-
-> **Note:** The system automatically receives updates from Shopify whenever stock changes (sales, returns, manual adjustments). Manual sync is usually not needed.
+Click **Sync now** (top right corner) to pull the latest stock data from your Shopify store.
 
 ---
 
-## 4. How Notifications Work
+## 4. Restock Orders — Review and Send
 
-The system automatically sends a WhatsApp message to the vendor when:
+**[SCREENSHOT: Restock-WhatsApp.png]**
 
-1. A product's stock drops **below the configured minimum**
-2. At least **24 hours** have passed since the last alert for the same product
+The **Restock Orders** page is where you review and send requests to suppliers. Each vendor has their own **tab** with a list of products that need restocking.
 
-The message includes:
-- Product name and photo
-- Current stock level
-- Minimum threshold
-- Request to restock
+### How is an order created?
 
-**Example message:**
-```
-⚠️ Low Stock Alert — RestockIQ
+The system automatically creates a restock order when:
+1. You assign a vendor to a product whose stock is below minimum
+2. Shopify reports that stock dropped below minimum (a sale, manual adjustment)
 
-Hi [Vendor Name],
+Everything after that is handled automatically — no manual steps needed.
 
-[Product Name]
-Current stock: 3
-Minimum stock: 10
+### Order Overview
 
-Please restock as soon as possible.
-```
+For each vendor you see:
+- **Product list** with image, name, and current stock
+- **Qty** — suggested order quantity (you can change this)
+- **Preview** — exact view of the message the vendor will receive
+
+### WhatsApp Order
+
+**[SCREENSHOT: Restock-WhatsApp.png]**
+
+When a vendor is set to **WhatsApp**, the preview shows each product as a separate message with photo and quantity — exactly as the vendor will see it on their phone.
+
+### Email Order
+
+**[SCREENSHOT: Restock-Email.png]**
+
+When a vendor is set to **Email**, the preview shows a formatted email with all products, images, and quantities listed together.
+
+### Editing Before Sending
+
+Before sending, you can:
+- **Change Qty** — click the number and type a new value
+- **Remove a product** — click × next to the product
+- **Add a note** — type in the field below the list (appears at the end of the message)
+
+### Sending
+
+Click **Send to [vendor name]** when you're ready. The order is sent and disappears from the list.
+
+Click **Dismiss** if you don't want to send (e.g. you've already contacted the supplier directly).
+
+> **Note:** After sending, the same products won't reappear until Shopify reports a new stock change.
 
 ---
 
 ## 5. Alert History (Alert Log)
 
-**[SCREENSHOT: Alert-Log]**
+**[SCREENSHOT: Alert-Log.png]**
 
-The **Alert Log** page shows the history of all notifications sent:
+The **Alert Log** page shows the history of all sent notifications:
 
 | Column | Description |
 |---|---|
 | Time | Date and time the message was sent |
 | Vendor | Name of the vendor who received the message |
-| Channel | Notification channel (WhatsApp) |
+| Channel | WhatsApp or Email |
 | Status | **sent** = delivered / **failed** = not delivered |
 | Message | Message content preview |
 
-The top right corner shows the total count of sent and failed messages.
-
-> If you see a **failed** status, contact us — there may be an issue with the vendor's phone number or WhatsApp account.
+> If you see a **failed** status, contact us — there may be an issue with the vendor's phone number or email address.
 
 ---
 
 ## Frequently Asked Questions
 
 **When will a vendor start receiving messages?**
-As soon as you assign a vendor to a product and that product's stock is below the configured minimum.
+As soon as you assign a vendor to a product whose stock is below the configured minimum.
 
 **Can one vendor be assigned to multiple products?**
-Yes, a single vendor can be assigned to an unlimited number of products. They will receive a separate message for each product that falls below its minimum.
+Yes, a single vendor can be assigned to an unlimited number of products.
 
-**Can multiple vendors be assigned to one product?**
-Currently, each product can have one vendor. Support for multiple vendors per product is planned for a future update.
-
-**What if a vendor doesn't receive a message?**
-Check that the phone number is correct and in international format. Check the Alert Log to see if the message shows as "sent" or "failed". If it shows "failed", please contact us.
-
-**Does the system work if I lose internet?**
-The system runs on our servers and is independent of your local internet connection. As long as Shopify can send inventory updates, everything will work.
+**What happens if I change the vendor for a product?**
+The system automatically moves the product to the new vendor and updates the Restock Orders accordingly.
 
 **Can I pause notifications for a specific vendor?**
-Yes. Click **Edit** next to the vendor and set their status to Inactive. No alerts will be sent to inactive vendors.
+Yes — click **Edit** next to the vendor and set their status to Inactive.
 
-**How often can a vendor receive alerts for the same product?**
-Maximum once every 24 hours per product. This prevents notification overload.
+**What if a vendor doesn't receive a message?**
+Check the Alert Log — if the status shows "failed", please contact us.
+
+**Does the system work if I lose internet?**
+Yes — the system runs on our servers and is independent of your local internet connection.
 
 ---
 
